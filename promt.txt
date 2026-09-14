@@ -1,0 +1,95 @@
+# PROMPT: Build a Complete Backtesting Framework using vectorbt
+
+## Objective
+Build a production-ready Python backtesting framework using vectorbt, pandas, numpy, and yfinance to test, optimize, compare, and report multiple trading strategies.
+
+## Requirements
+### 1. Data Layer
+- Load data from either Yahoo Finance or local PKL files.
+- Stock data: data/raw/Stock Data/{UNIVERSE}_data.pkl.
+- Universe constituents: data/raw/Indices/{UNIVERSE}.pkl, using the Yahoo column.
+- Standard output: dates as Date, stocks as columns, with Close as the primary price.
+- Replace negative/Inf values with NaN; forward-fill missing prices for a maximum of 2 trading days.
+- Support daily, weekly, and monthly timeframes. Buy and sell timeframes may differ.
+- Load at least 2 years of warm-up data before the backtest start date.
+- Resample/calculate data on the required timeframe before truncating to the trading period.
+
+
+### 2. Strategy Implementations
+Support configurable parameters, universe selection, and a maximum of 10 positions per strategy.
+This condition for each strategy also need to be configurable.
+
+**RSI Trend Following **
+RSI(200)
+Default: Buy > 54, Sell < 51.
+
+**Relative Momentum:**
+- Rank stocks and maintain a maximum of 10 stocks.
+- Separate configurable buy_rank and sell rank (default 10 and 15).
+- Sell holding falling below 15
+- Fill available positions with the highest rank stock meeting buy_rank.
+- Support independent buy_freq and sell_freq (eg. quaterly buy/weekly sell)
+
+### 3. Backtest Engine
+- Use vectorb.Portfolio.from_signals.
+- Starting capital 10 Lakhs
+- Trading charge .25 per trade.
+- Do not rebalance daily. 
+- Use portfolio weights
+  a) 0.1 = Buy
+  b) 0 = Sell
+  c) Nan = No action or Hold.
+- Maintain a detailed diagnostics logs of signals, trades, dates, prices, and P&L.
+
+
+### 4. Performance Metrics
+Calculate and display:
+- Total and Annualized Return
+- Sharpe, Sortino, Calmar Ratio
+- Maximum Drawdown
+- Win Rate and Profit Factor
+- Average Win/Loss
+- Total Trades and Trade Frequency
+- Expectancy
+- Risk of Ruin
+
+### 5. Analysis & Visualization
+- Plot equity curve vs benchmark
+- Drawdown chart
+- Trade distribution
+- Strategy performance heatmap
+- Monthly/quarterly return heatmap
+- Rolling Sharpe
+- Performance summary tables
+
+### 6. Optimization Module
+- Grid search
+- Walk-forward optimization
+- Multi-metric optimization (Sharpe, Return, Calmar)
+- Results visualization
+- Parameter sensitivity analysis
+
+### 7. Comparison Framework
+- Compare multiple strategies on same data
+- Rank strategies by performance metrics
+- Generate comparative performance charts
+- Create strategy correlation matrix
+- Display ensemble performance
+
+### 8. Reporting
+- Generate HTML report with all results
+- Export results to CSV/Excel
+- Create PDF summary reports
+- Include trade log with dates and P&L
+- Show performance attribution
+
+### 9. Utilities
+- Progress bars for long-running operations
+- Logging system
+- Error handling
+- Configuration management (YAML/JSON)
+- Database storage for results
+
+## Technical Requirements
+
+### Libraries:

@@ -1,0 +1,4 @@
+1. save_stock_data.py - stores stock indices from /data/raw/Indices and 
+    populates as csv and pkl file to /data/raw/Stock Data
+2. 
+

@@ -1,0 +1,134 @@
+# Data Configuration
+data:
+  source: pkl                    # pkl | yahoo
+  warmup_years: 2
+  stock_data_dir: data/raw/Stock Data
+  index_dir: data/raw/Indices
+  max_ffill_days: 2
+
+# Backtest Configuration
+backtest:
+  start: "2013-01-01"
+  end: "2022-12-31"
+  universes:
+    - "nifty50"
+    - "niftynext50"
+    - "niftymidcap150"
+    - "niftysmallcap250"
+  periods:
+    - start: 2013-01-01
+      end: 2017-12-31
+
+    - start: 2018-01-01
+      end: 2022-12-31
+
+    # - start: 2013-01-01
+    #   end: 2022-12-31
+  initial_cash: 1000000          # 10 Lakhs
+  fees: 0.0025                   # 0.25% per trade
+  slippage: 0.0
+  max_positions: 10
+  cash_sharing: true
+  benchmark: "^NSEI"
+
+
+# Risk Management
+risk:
+  stop_loss_pct: null            # e.g., 0.10 for 10%
+  take_profit_pct: null          # e.g., 0.20 for 20%
+  position_sizing: equal         # equal | volatility | kelly
+  volatility_lookback: 21
+  max_volatility: null           # e.g., 0.4 for 40%
+
+# Strategies
+strategies:
+  # - name: rsi
+  #   enabled: true
+  #   params:
+  #     rsi_window: 200
+  #     buy_threshold: 54
+  #     sell_threshold: 51
+  #     buy_freq: M                # Daily, W, M, Q
+  #     sell_freq: W
+  #     mean_reversion: false
+  #     use_volume_filter: false
+  # - name: rsi_new
+  #   enabled: true
+  #   params:
+  #     rsi_window: 200
+  #     buy_threshold: 54
+  #     sell_threshold: 51
+  #     buy_freq: M                # Daily, W, M, Q
+  #     sell_freq: W
+  #     mean_reversion: false
+  #     use_volume_filter: false
+  # - name: rsi_new_and
+  #   enabled: true
+  #   params:
+  #     rsi_window: 200
+  #     buy_threshold: 54
+  #     sell_threshold: 51
+  #     buy_freq: M                # Daily, W, M, Q
+  #     sell_freq: W
+  #     mean_reversion: false
+  #     use_volume_filter: false
+  - name: momentum
+    enabled: true
+    params:
+      lookback: 256
+      buy_rank: 10
+      sell_rank: 15
+      buy_freq: Q                # Quarterly buys
+      sell_freq: W               # Weekly sells
+      # trend_filter: true
+      # max_volatility: 0.5
+  - name: momentum_stop
+    enabled: true
+    params:
+      lookback: 256
+      buy_rank: 10
+      sell_rank: 15
+      buy_freq: Q                # Quarterly buys
+      sell_freq: W               # Weekly sells
+
+
+# Optimization
+optimization:
+  enabled: false
+  method: grid_search            # grid_search | optuna | walk_forward
+  metric: sharpe                 # sharpe | return | calmar | sortino
+  direction: maximize
+  n_trials: 100
+  n_jobs: 4
+  train_years: 3
+  test_months: 6
+  grid:
+    rsi:
+      rsi_window: [100, 200, 300]
+      buy_threshold: [50, 54, 58]
+      sell_threshold: [45, 51, 55]
+    momentum:
+      lookback: [63, 126, 252]
+      buy_rank: [5, 10, 15]
+      sell_rank: [10, 15, 20]
+
+# Reporting
+reporting:
+  output_dir: results
+  html: false
+  excel: false
+  pdf: false
+  plotly: true
+  include_trade_log: false
+  include_monthly_returns: false
+
+# Database
+database:
+  enabled: false
+  url: sqlite:///results/backtests.db
+
+# Logging
+logging:
+  level: INFO
+  console_level: WARNING
+  file: logs/backtest.log

@@ -1,0 +1,151 @@
+data:
+  source: yahoo                  # pkl | yahoo
+  warmup_years: 2
+  stock_data_dir: data/raw/Stock Data
+  index_dir: data/raw/Indices
+  max_ffill_days: 2
+
+portfolios:
+  nifty50:
+    max_positions: 10
+    sell_rank: 15
+    skip_months: 1
+    buy_freq: Q
+    sell_freq: W
+
+    holdings :
+      HINDALCO.NS :
+        qty: 45
+        buy_date: 2026-01-01
+        buy_price: 1102.90
+      TATASTEEL.NS :
+        qty: 225
+        buy_date: 2026-01-01
+        buy_price: 222.14 
+      COALINDIA.NS :
+        qty: 107
+        buy_date: 2026-01-01
+        buy_price: 467.30
+      BAJAJ-AUTO.NS :
+        qty: 5
+        buy_date: 2026-01-01
+        buy_price: 10463.50      
+      JSWSTEEL.NS :
+        qty: 38
+        buy_date: 2026-01-01
+        buy_price: 1301.20
+      SHRIRAMFIN.NS :
+        qty: 53
+        buy_date: 2026-01-01
+        buy_price: 936.50
+      ADANIPORTS.NS :
+        qty: 28
+        buy_date: 2026-01-01
+        buy_price: 1770.10
+      TITAN.NS :
+        qty: 19
+        buy_date: 2026-01-01
+        buy_price: 4469.98
+      APOLLOHOSP.NS :
+        qty: 6
+        buy_date: 2026-01-01
+        buy_price: 8149.00
+      EICHERMOT.NS :
+        qty: 6
+        buy_date: 2026-01-01
+        buy_price: 6548.00
+      NESTLEIND.NS :
+        qty: 34
+        buy_date: 2026-01-01
+        buy_price: 1457.20
+
+  niftynext50:
+    max_positions: 10
+    sell_rank: 15
+    skip_months: 1
+    buy_freq: Q
+    sell_freq: W
+
+    holdings :
+      ABB.NS :
+        qty: 8
+        buy_date: 2026-01-01
+        buy_price: 7415.12
+      TVSMOTOR.NS :
+        qty: 16
+        buy_date: 2026-01-01
+        buy_price: 4385.20
+  niftymidcap150:
+    max_positions: 10
+    sell_rank: 20
+    skip_months: 1
+    buy_freq: Q
+    sell_freq: W
+
+    holdings :
+      MCX.NS :
+        qty: 95
+        buy_date: 2026-01-01
+        buy_price: 2052.86
+      LAURUSLABS.NS :
+        qty: 198
+        buy_date: 2026-01-01
+        buy_price: 1056.39
+      FEDERALBNK.NS :
+        qty: 200
+        buy_date: 2026-01-01
+        buy_price: 350.10
+      BHEL.NS :
+        qty: 158
+        buy_date: 2026-01-01
+        buy_price: 430.10
+      BHARATFORG.NS :
+        qty: 34
+        buy_date: 2026-01-01
+        buy_price: 2055.20    
+
+  niftysmallcap250:
+    max_positions: 10
+    sell_rank: 25
+    skip_months: 1
+    buy_freq: Q
+    sell_freq: W
+
+    holdings :
+      ACUTAAS.NS :
+        qty: 22
+        buy_date: 2026-01-01
+        buy_price: 3177.00
+      CHENNPETRO.NS :
+        qty: 222
+        buy_date: 2026-01-01
+        buy_price: 873.82
+      NAVINFLUOR.NS :
+        qty: 32
+        buy_date: 2026-01-01
+        buy_price: 6137.96
+      RBLBANK.NS :
+        qty: 672
+        buy_date: 2026-01-01
+        buy_price: 299.08
+      WELCORP.NS :
+        qty: 30
+        buy_date: 2026-01-01
+        buy_price: 2510.10
+      TAKE.NS :
+        qty: 5681
+        buy_date: 2026-01-01
+        buy_price: 36.48    
+      BELRISE.NS :
+        qty: 310
+        buy_date: 2026-01-01
+        buy_price: 229.60     
+      PFOCUS.NS :
+        qty: 240 
+        buy_date: 2026-01-01
+        buy_price: 293.00                         
+
+
+
+
+

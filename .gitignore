@@ -1,0 +1,11 @@
+.ipynb_checkpoints/
+.vscode/
+__pycache__/
+logs/
+research/
+summary.csv
+trade_log.csv
+trade_report.csv
+tests/
+.venv/
+data/raw/Stock Data/
