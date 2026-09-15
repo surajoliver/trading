@@ -9,3 +9,4 @@ trade_report.csv
 tests/
 .venv/
 data/raw/Stock Data/
+live_output.csv

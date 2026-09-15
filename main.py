@@ -120,13 +120,15 @@ def trade_report(close, trades, strategy, universe, period):
         if s not in close.columns:
             continue
 
-        px = close.loc[entry:exit, s].dropna()
-        if px.empty:
-            continue
-
         pnl = exit_price / entry_price - 1
-        mae = max(0, 1 - px.min() / entry_price)
-        mfe = max(0, px.max() / entry_price - 1)
+        mae = first_value(row_dict, "MAE")
+        mfe = first_value(row_dict, "MFE")
+        if mae is None or mfe is None:
+            px = close.loc[entry:exit, s].dropna()
+            if px.empty:
+                continue
+            mae = max(0, 1 - px.min() / entry_price)
+            mfe = max(0, px.max() / entry_price - 1)
         typ = "Win" if pnl > 0 else "Loss"
 
         rows.append({

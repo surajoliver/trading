@@ -143,8 +143,12 @@ def run_backtest(
     value = pf.value()
     metrics = calculate_metrics(pf, value=value)
     
-    # Build diagnostics
-    diagnostics = build_diagnostics(close, target_weights, value)
+    # Diagnostics are useful for debugging but are not needed for normal runs.
+    diagnostics = (
+        build_diagnostics(close, target_weights, value)
+        if config.get("build_diagnostics", False)
+        else pd.DataFrame()
+    )
     trade_log = get_trade_log(pf)
     
     return BacktestResult(

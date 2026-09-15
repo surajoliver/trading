@@ -348,14 +348,22 @@ class RSINewAndStrategy(Strategy):
 class MomentumStrategy(Strategy):
     """Relative momentum strategy with ranking."""
     
-    def __init__(self, lookback=256, skip=21, buy_rank=10, sell_rank=15, **kwargs):
+    def __init__(
+        self,
+        lookback=256,
+        skip_months=1,
+        buy_rank=10,
+        sell_rank=15,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.lookback, self.buy_rank, self.sell_rank = lookback, buy_rank, sell_rank
         self.ranks = None
-        self.skip = skip
+        self.skip_months = skip_months
+        self.skip_days = int(skip_months * 21)
     
     def prepare(self, prices):
-        ret = prices.shift(self.skip).pct_change(self.lookback)
+        ret = prices.shift(self.skip_days).pct_change(self.lookback)
         self.ranks = ret.rank(axis=1, ascending=False)
     
     def get_buys(self, prices, dt, holdings, needed):
@@ -375,7 +383,7 @@ class MomentumStrategy(Strategy):
         #s for s in holdings if s in ranks.index and ranks[s] > self.sell_rank]
 
 
-class MomentumSLStrategy(Strategy):
+class DualMomentumStrategy(Strategy):
     """Relative momentum strategy with ranking."""
     
     def __init__(self, lookback=256, skip=21, buy_rank=10, sell_rank=15, **kwargs):
@@ -392,25 +400,27 @@ class MomentumSLStrategy(Strategy):
         self.ma200 = prices.rolling(200).mean()
     
     def get_buys(self, prices, dt, holdings, needed):
-        ranks = self.ranks.loc[dt]
+        if needed <= 0:
+            return []
+
+        roc_now = self.roc.loc[dt]
+        positive_roc = roc_now[roc_now > 0].dropna()
+        if positive_roc.empty:
+            return []
+
+        ranks = self.ranks.loc[dt].reindex(positive_roc.index)
         candidates = ranks[
-            (ranks <= self.buy_rank) &
-            (~ranks.index.isin(holdings))
+            (~ranks.index.isin(holdings)) &
+            (ranks <= self.buy_rank)
         ]
+        if candidates.empty:
+            return []
+
         price_now = prices.loc[dt]
-        ma200_now = self.ma200.loc[dt] 
-
-        candidates = candidates[ price_now[candidates.index] > (ma200_now[candidates.index] * 1.03)]
-
-        # for stock in candidates.index:
-        #     roc = self.roc[stock]
-        #     now = roc.loc[dt]
-        #     prev30 = roc.shift(30).loc[dt]
-        #     prev60 = roc.shift(60).loc[dt]
-
-        #     if pd.notna(now) and pd.notna(prev30) and pd.notna(prev60):
-        #         if now < prev30 < prev60:
-        #             candidates = candidates.drop(stock)
+        ma200_now = self.ma200.loc[dt]
+        candidates = candidates[
+            price_now[candidates.index] > (ma200_now[candidates.index] * 1.03)
+        ]
 
         return candidates.nsmallest(needed).index.tolist()
    
@@ -452,7 +462,15 @@ class MomentumSLStrategy(Strategy):
 
 class StrategyFactory:
     """Strategy factory."""
-    _registry = {'rsi': RSIStrategy, 'momentum': MomentumStrategy,  'momentum_stop': MomentumSLStrategy,  'rsi_new': RSINewStrategy, 'rsi_new_and': RSINewAndStrategy}
+    _registry = {
+        'rsi': RSIStrategy,
+        'momentum': MomentumStrategy,
+        'momentum2': MomentumStrategy,
+        'dualmomentum': DualMomentumStrategy,
+        'dual_momentum': DualMomentumStrategy,
+        'rsi_new': RSINewStrategy,
+        'rsi_new_and': RSINewAndStrategy,
+    }
     
     @classmethod
     def create(cls, name: str, **kwargs):

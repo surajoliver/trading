@@ -8,8 +8,6 @@ data:
 
 # Backtest Configuration
 backtest:
-  start: "2013-01-01"
-  end: "2022-12-31"
   universes:
     - "nifty50"
     - "niftynext50"
@@ -22,13 +20,14 @@ backtest:
     - start: 2018-01-01
       end: 2022-12-31
 
-    # - start: 2013-01-01
-    #   end: 2022-12-31
+    - start: 2023-01-01
+      end: 2026-12-31
   initial_cash: 1000000          # 10 Lakhs
   fees: 0.0025                   # 0.25% per trade
   slippage: 0.0
   max_positions: 10
   cash_sharing: true
+  build_diagnostics: false
   benchmark: "^NSEI"
 
 
@@ -42,16 +41,16 @@ risk:
 
 # Strategies
 strategies:
-  # - name: rsi
-  #   enabled: true
-  #   params:
-  #     rsi_window: 200
-  #     buy_threshold: 54
-  #     sell_threshold: 51
-  #     buy_freq: M                # Daily, W, M, Q
-  #     sell_freq: W
-  #     mean_reversion: false
-  #     use_volume_filter: false
+  - name: rsi
+    enabled: true
+    params:
+      rsi_window: 200
+      buy_threshold: 54
+      sell_threshold: 51
+      buy_freq: M                # Daily, W, M, Q
+      sell_freq: W
+      mean_reversion: false
+      use_volume_filter: false
   # - name: rsi_new
   #   enabled: true
   #   params:
@@ -72,25 +71,31 @@ strategies:
   #     sell_freq: W
   #     mean_reversion: false
   #     use_volume_filter: false
-  - name: momentum
+  - name: momentum2
+    enabled: true
+    params:
+      lookback: 256
+      skip_months: 1
+      buy_rank: 10
+      sell_rank: 20
+      buy_freq: Y                # Quarterly buys
+      sell_freq: Y                # Weekly sells
+  - name: dualmomentum
+    enabled: true
+    params:
+      lookback: 84
+      buy_rank: 10
+      sell_rank: 20
+      buy_freq: Q                # Quarterly buys
+      sell_freq: Q               # Weekly sells
+  - name: dual_momentum
     enabled: true
     params:
       lookback: 256
       buy_rank: 10
-      sell_rank: 15
-      buy_freq: Q                # Quarterly buys
-      sell_freq: W               # Weekly sells
-      # trend_filter: true
-      # max_volatility: 0.5
-  - name: momentum_stop
-    enabled: true
-    params:
-      lookback: 256
-      buy_rank: 10
-      sell_rank: 15
-      buy_freq: Q                # Quarterly buys
-      sell_freq: W               # Weekly sells
-
+      sell_rank: 20
+      buy_freq: M                # Quarterly buys
+      sell_freq: M               # Weekly sells
 
 # Optimization
 optimization:

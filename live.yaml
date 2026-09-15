@@ -5,13 +5,16 @@ data:
   index_dir: data/raw/Indices
   max_ffill_days: 2
 
+risk:
+  stop_loss_pct: 0.20            # Sell when price falls 20% or more below buy_price
+
 portfolios:
   nifty50:
     max_positions: 10
-    sell_rank: 15
+    sell_rank: 20
     skip_months: 1
-    buy_freq: Q
-    sell_freq: W
+    buy_freq: Y
+    sell_freq: Y
 
     holdings :
       HINDALCO.NS :
@@ -61,10 +64,10 @@ portfolios:
 
   niftynext50:
     max_positions: 10
-    sell_rank: 15
+    sell_rank: 20
     skip_months: 1
-    buy_freq: Q
-    sell_freq: W
+    buy_freq: Y
+    sell_freq: Y
 
     holdings :
       ABB.NS :
@@ -79,8 +82,8 @@ portfolios:
     max_positions: 10
     sell_rank: 20
     skip_months: 1
-    buy_freq: Q
-    sell_freq: W
+    buy_freq: Y
+    sell_freq: Y
 
     holdings :
       MCX.NS :
@@ -108,8 +111,8 @@ portfolios:
     max_positions: 10
     sell_rank: 25
     skip_months: 1
-    buy_freq: Q
-    sell_freq: W
+    buy_freq: Y
+    sell_freq: Y
 
     holdings :
       ACUTAAS.NS :

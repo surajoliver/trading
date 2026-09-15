@@ -13,6 +13,7 @@ class StockDecision:
     ranks: pd.Series | None = field(default=None, repr=False)
     prices: pd.Series | None = field(default=None, repr=False)
     ma: pd.Series | None = field(default=None, repr=False)
+    ma50: pd.Series | None = field(default=None, repr=False)
     roc: pd.Series | None = field(default=None, repr=False)
     roc_current: pd.Series | None = field(default=None, repr=False)
     ranks_current: pd.Series | None = field(default=None, repr=False)
@@ -22,6 +23,14 @@ class StockDecision:
     macd_histogram: pd.Series | None = field(default=None, repr=False)
     accel_6m_4w: pd.Series | None = field(default=None, repr=False)
     sell_rank: int | None = field(default=None, repr=False)
+    entry_prices: dict | None = field(default=None, repr=False)
+    entry_dates: dict | None = field(default=None, repr=False)
+    stop_loss_prices: dict | None = field(default=None, repr=False)
+    mae: dict | None = field(default=None, repr=False)
+    mfe: dict | None = field(default=None, repr=False)
+    highest_prices: dict | None = field(default=None, repr=False)
+    trailing_stop_prices: dict | None = field(default=None, repr=False)
+    sell_reasons: dict | None = field(default=None, repr=False)
 
     def _status_for_symbol(self, symbol):
         if symbol in self.buy:
@@ -47,10 +56,19 @@ class StockDecision:
             rank = self.ranks.get(symbol) if self.ranks is not None and symbol in self.ranks.index else None
             close_price = self.prices.get(symbol) if self.prices is not None and symbol in self.prices.index else None
             ma_price = self.ma.get(symbol) if self.ma is not None and symbol in self.ma.index else None
+            ma50_price = self.ma50.get(symbol) if self.ma50 is not None and symbol in self.ma50.index else None
             status = self._status_for_symbol(symbol)
 
             last_price = round(close_price, 2) if close_price is not None else None
             ma200 = round(ma_price, 2) if ma_price is not None else None
+            ma50 = round(ma50_price, 2) if ma50_price is not None else None
+            entry_price = self.entry_prices.get(symbol) if self.entry_prices else None
+            entry_date = self.entry_dates.get(symbol) if self.entry_dates else None
+            stop_loss_price = self.stop_loss_prices.get(symbol) if self.stop_loss_prices else None
+            mae = self.mae.get(symbol) if self.mae else None
+            mfe = self.mfe.get(symbol) if self.mfe else None
+            highest_price = self.highest_prices.get(symbol) if self.highest_prices else None
+            trailing_stop_price = self.trailing_stop_prices.get(symbol) if self.trailing_stop_prices else None
             roc_value = self.roc.get(symbol) if self.roc is not None and symbol in self.roc.index else None
             roc_current_value = self.roc_current.get(symbol) if self.roc_current is not None and symbol in self.roc_current.index else None
             rank_current_value = self.ranks_current.get(symbol) if self.ranks_current is not None and symbol in self.ranks_current.index else None
@@ -77,22 +95,28 @@ class StockDecision:
             else:
                 extension_over_ma200 = None
 
+            if close_price is not None and ma50_price is not None and ma50_price != 0:
+                extension_over_ma50 = round(((close_price - ma50_price) / ma50_price) * 100, 2)
+            else:
+                extension_over_ma50 = None
+
             if status == "Buy":
                 qty_to_buy = round(70000 / close_price) if close_price not in (None, 0) else 0
                 if rank is not None and ma200 is not None:
-                    remarks = f"Rank {rank}; ROC {roc_value}% ; MA200 {ma200}; +{extension_over_ma200}% over MA200; MACD {macd_value}; accel {accel_value}pp; price supports fresh entry."
+                    remarks = f"Rank {rank}; ROC {roc_value}% ; MA200 {ma200}; +{extension_over_ma200}% over MA200; MA50 {ma50}; +{extension_over_ma50}% over MA50; MACD {macd_value}; accel {accel_value}pp; price supports fresh entry."
                 else:
                     remarks = "Rank/MA200 not available; eligible for entry."
             elif status == "Sell":
                 qty_to_buy = 0
+                sell_reason = self.sell_reasons.get(symbol, "Momentum weak") if self.sell_reasons else "Momentum weak"
                 if rank is not None and ma200 is not None:
-                    remarks = f"Rank {rank}; ROC {roc_value}% ; MA200 {ma200}; +{extension_over_ma200}% over MA200; MACD {macd_value}; accel {accel_value}pp; momentum weak, exit position."
+                    remarks = f"Rank {rank}; ROC {roc_value}% ; MA200 {ma200}; +{extension_over_ma200}% over MA200; MA50 {ma50}; +{extension_over_ma50}% over MA50; MACD {macd_value}; accel {accel_value}pp; {sell_reason}, exit position."
                 else:
-                    remarks = "Momentum weak, exit position."
+                    remarks = f"{sell_reason}, exit position."
             elif status == "Hold":
                 qty_to_buy = 0
                 if rank is not None and ma200 is not None:
-                    remarks = f"Rank {rank}; ROC {roc_value}% ; MA200 {ma200}; +{extension_over_ma200}% over MA200; MACD {macd_value}; accel {accel_value}pp; continue holding as trend remains intact."
+                    remarks = f"Rank {rank}; ROC {roc_value}% ; MA200 {ma200}; +{extension_over_ma200}% over MA200; MA50 {ma50}; +{extension_over_ma50}% over MA50; MACD {macd_value}; accel {accel_value}pp; continue holding as trend remains intact."
                 else:
                     remarks = "Continue holding as trend remains intact."
             else:
@@ -103,6 +127,13 @@ class StockDecision:
                 "stock": symbol,
                 "status": status,
                 "last_price": last_price,
+                "entry_price": entry_price,
+                "entry_date": entry_date,
+                "stop_loss_price": stop_loss_price,
+                "mae": mae,
+                "mfe": mfe,
+                "highest_price": highest_price,
+                "trailing_stop_price": trailing_stop_price,
                 "qty_to_buy": qty_to_buy,
                 "rank": rank,
                 "roc": roc_value,
@@ -112,6 +143,8 @@ class StockDecision:
                 "rank_history": rank_history,
                 "ma200": ma200,
                 "extension": extension_over_ma200,
+                "ma50": ma50,
+                "extension2": extension_over_ma50,
                 "macd": macd_value,
                 "macd_histogram": macd_hist_value,
                 "accel_6m_4w": accel_value,
@@ -123,7 +156,7 @@ class StockDecision:
     def to_dataframe(self):
         rows = self._build_rows()
         if not rows:
-            return pd.DataFrame(columns=["stock", "status", "last_price", "qty_to_buy", "rank", "roc", "rank_current_month", "roc_current_month", "roc_history", "rank_history", "ma200", "extension", "macd", "macd_histogram", "accel_6m_4w", "remarks"])
+            return pd.DataFrame(columns=["stock", "status", "last_price", "entry_price", "entry_date", "stop_loss_price", "mae", "mfe", "highest_price", "trailing_stop_price", "qty_to_buy", "rank", "roc", "rank_current_month", "roc_current_month", "roc_history", "rank_history", "ma200", "extension", "ma50", "extension2", "macd", "macd_histogram", "accel_6m_4w", "remarks"])
 
         df = pd.DataFrame(rows)
         status_order = {"Buy": 0, "Hold": 1, "Sell": 2}
@@ -164,10 +197,11 @@ class MomentumLiveSelector:
         self.roc_current = close.pct_change(self.lookback)
         self.ranks_current = self.roc_current.rank(axis=1, ascending=False)
         self.ma = close.rolling(self.ma_window).mean()
+        self.ma50 = close.rolling(50).mean()
 
-        ema12 = close.ewm(span=12, adjust=False).mean()
-        ema26 = close.ewm(span=26, adjust=False).mean()
-        self.macd = ema12 - ema26
+        ema50 = close.ewm(span=50, adjust=False).mean()
+        ema200 = close.ewm(span=200, adjust=False).mean()
+        self.macd = ema50 - ema200
         self.macd_signal = self.macd.ewm(span=9, adjust=False).mean()
         self.macd_histogram = self.macd - self.macd_signal
 
@@ -181,13 +215,14 @@ class MomentumLiveSelector:
         roc_6m_4w_pct = roc_6m_pct.shift(20)
         self.accel_6m_4w = roc_6m_pct - roc_6m_4w_pct
 
-    def select(self, close, holdings, dt=None):
+    def select(self, close, holdings, dt=None, entry_prices=None, entry_dates=None, stop_loss_pct=0.20):
         dt = dt or close.index[-1]
 
         ranks = self.ranks.loc[dt].dropna()
         ranks_current = self.ranks_current.loc[dt].dropna() if self.ranks_current is not None else ranks
         price = close.loc[dt]
         ma = self.ma.loc[dt]
+        ma50 = self.ma50.loc[dt]
         roc = self.roc.loc[dt]
         roc_current_series = self.roc_current.loc[dt] if self.roc_current is not None else roc
         macd = self.macd_norm.loc[dt]
@@ -226,9 +261,44 @@ class MomentumLiveSelector:
             rank_history[symbol] = _format_history(rank_current, rank_prev_1m, rank_prev_2m, decimals=0, as_int=True)
 
         holdings = list(holdings)
+        entry_prices = entry_prices or {}
+        entry_dates = entry_dates or {}
+        stop_loss_prices = {
+            stock: round(float(entry_prices[stock]) * (1 - stop_loss_pct), 2)
+            for stock in holdings
+            if stock in entry_prices and pd.notna(entry_prices[stock])
+        }
+        mae = {}
+        mfe = {}
+        highest_prices = {}
+        trailing_stop_prices = {}
+        for stock in holdings:
+            if stock not in entry_prices or pd.isna(entry_prices[stock]) or stock not in close.columns:
+                continue
+
+            entry_date = entry_dates.get(stock)
+            if entry_date is None or pd.isna(entry_date):
+                continue
+
+            try:
+                entry_date = pd.Timestamp(entry_date)
+                entry_price = float(entry_prices[stock])
+            except (TypeError, ValueError):
+                continue
+
+            prices_since_entry = close.loc[entry_date:dt, stock].dropna()
+            if prices_since_entry.empty or entry_price <= 0:
+                continue
+
+            lowest_price = float(prices_since_entry.min())
+            highest_price = float(prices_since_entry.max())
+            mae[stock] = round(max(0.0, (entry_price - lowest_price) / entry_price * 100), 2)
+            mfe[stock] = round(max(0.0, (highest_price - entry_price) / entry_price * 100), 2)
+            highest_prices[stock] = round(highest_price, 2)
+            trailing_stop_prices[stock] = round(highest_price * (1 - stop_loss_pct), 2)
 
         # Existing positions: sell first
-        sell = [
+        momentum_sell = [
             stock for stock in holdings
             if stock in ranks.index
             and (
@@ -236,13 +306,36 @@ class MomentumLiveSelector:
                 or (stock in ranks_current.index and ranks_current[stock] > self.sell_rank)
             )
         ]
+        stop_loss_sell = [
+            stock for stock in holdings
+            if stock in stop_loss_prices
+            and stock in price.index
+            and pd.notna(price[stock])
+            and price[stock] <= stop_loss_prices[stock]
+        ]
+        trailing_stop_sell = [
+            stock for stock in holdings
+            if stock in trailing_stop_prices
+            and stock in price.index
+            and pd.notna(price[stock])
+            and price[stock] <= trailing_stop_prices[stock]
+        ]
+        sell = list(dict.fromkeys(momentum_sell + stop_loss_sell + trailing_stop_sell))
+        sell_reasons = {
+            stock: "; ".join(reason for reason, triggered in (
+                ("stop loss hit", stock in stop_loss_sell),
+                ("trailing stop hit", stock in trailing_stop_sell),
+                ("rank threshold breached", stock in momentum_sell),
+            ) if triggered)
+            for stock in sell
+        }
 
         hold = [s for s in holdings if s not in sell]
 
         slots = self.max_positions - len(hold)
 
         if slots <= 0:
-            return StockDecision(sell, [], hold, 0, ranks=ranks, prices=price, ma=ma, roc=roc, roc_current=roc_current_series, ranks_current=ranks_current, roc_history=roc_history, rank_history=rank_history, macd=macd, macd_histogram=macd_histogram, accel_6m_4w=accel_6m_4w, sell_rank=self.sell_rank)
+            return StockDecision(sell, [], hold, 0, ranks=ranks, prices=price, ma=ma, ma50=ma50, roc=roc, roc_current=roc_current_series, ranks_current=ranks_current, roc_history=roc_history, rank_history=rank_history, macd=macd, macd_histogram=macd_histogram, accel_6m_4w=accel_6m_4w, sell_rank=self.sell_rank, entry_prices=entry_prices, entry_dates=entry_dates, stop_loss_prices=stop_loss_prices, mae=mae, mfe=mfe, highest_prices=highest_prices, trailing_stop_prices=trailing_stop_prices, sell_reasons=sell_reasons)
 
         # New entries
         candidates = ranks[
@@ -268,6 +361,7 @@ class MomentumLiveSelector:
             ranks=ranks,
             prices=price,
             ma=ma,
+            ma50=ma50,
             roc=roc,
             roc_current=roc_current_series,
             ranks_current=ranks_current,
@@ -277,4 +371,12 @@ class MomentumLiveSelector:
             macd_histogram=macd_histogram,
             accel_6m_4w=accel_6m_4w,
             sell_rank=self.sell_rank,
+            entry_prices=entry_prices,
+            entry_dates=entry_dates,
+            stop_loss_prices=stop_loss_prices,
+            mae=mae,
+            mfe=mfe,
+            highest_prices=highest_prices,
+            trailing_stop_prices=trailing_stop_prices,
+            sell_reasons=sell_reasons,
         )
