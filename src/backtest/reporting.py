@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from jinja2 import Template
 
-from src.core import calculate_metrics, monthly_returns, quarterly_returns, BacktestResult
+from src.backtest.core import calculate_metrics, monthly_returns, quarterly_returns, BacktestResult
 
 # Set style
 plt.style.use('seaborn-v0_8-darkgrid')

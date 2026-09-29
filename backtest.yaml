@@ -1,0 +1,204 @@
+# Data Configuration
+data:
+  source: pkl                    # pkl | yahoo
+  warmup_years: 2
+  stock_data_dir: data/raw/Stock Data
+  index_dir: data/raw/Indices
+  max_ffill_days: 2
+
+# Backtest Configuration
+backtest:
+  universes:
+    - "nifty50"
+    - "niftynext50"
+    - "niftymidcap150"
+    - "niftysmallcap250"
+  periods:
+    - start: 2011-01-01
+      end: 2015-12-31
+    - start: 2016-01-01
+      end: 2020-12-31
+    - start: 2021-01-01
+      end: 2023-12-31
+    - start: 2024-01-01
+      end: 2026-12-31      
+    # - start: 2018-01-01
+    #   end: 2022-12-31
+
+    # - start: 2011-01-01
+    #   end: 2026-12-31
+  initial_cash: 1000000          # 10 Lakhs
+  fees: 0.0025                   # 0.25% per trade
+  slippage: 0.0
+  max_positions: 10
+  cash_sharing: true
+  build_diagnostics: false
+  benchmark: "^NSEI"
+  sell_rank_by_universe:
+    nifty50: 15
+    niftynext50: 20
+    niftymidcap150: 20
+    niftysmallcap250: 25
+
+
+# Risk Management
+risk:
+  stop_loss_pct: null            # e.g., 0.10 for 10%
+  take_profit_pct: null          # e.g., 0.20 for 20%
+  position_sizing: equal         # equal | volatility | kelly
+  volatility_lookback: 21
+  max_volatility: null           # e.g., 0.4 for 40%
+
+# Strategies
+strategies:
+  # - name: momentum_yearly
+  #   enabled: true
+  #   params:
+  #     lookback: 256
+  #     skip_months: 1
+  #     sell_rank: 15
+  #     max_positions: 10
+  #     buy_freq: Y
+  #     sell_freq: Y
+  # - name: momentum_monthly
+  #   enabled: true
+  #   params:
+  #     lookback: 256
+  #     skip_months: 1
+  #     buy_rank: 10
+  #     # ma_window: 200
+  #     sell_rank: 15
+  #     buy_freq: M
+  #     sell_freq: M      
+  # - name: momentum_stop_loss
+  #   enabled: true
+  #   params:
+  #     lookback: 256
+  #     skip_months: 1
+  #     sell_rank: 20
+  #     max_positions: 10
+  #     initial_stop_loss_pct: 0.20
+  #     peak_stop_loss_pct: 0.20
+  #     buy_freq: Q
+  #     sell_freq: W
+  # - name: momentum_stop_loss_05
+  #   enabled: true
+  #   params:
+  #     lookback: 256
+  #     skip_months: 1
+  #     sell_rank: 20
+  #     max_positions: 10
+  #     initial_stop_loss_pct: 0.05
+  #     peak_stop_loss_pct: 0.50
+  #     buy_freq: Q
+  #     sell_freq: W
+  # - name: momentum_stop_loss_10
+  #   enabled: true
+  #   params:
+  #     lookback: 256
+  #     skip_months: 1
+  #     sell_rank: 20
+  #     max_positions: 10
+  #     initial_stop_loss_pct: 0.10
+  #     peak_stop_loss_pct: 0.10
+  #     buy_freq: Q
+  #     sell_freq: D
+  - name: momentum_stop_loss_15
+    enabled: true
+    params:
+      lookback: 256
+      skip_months: 1
+      sell_rank: 15
+      max_positions: 10
+      initial_stop_loss_pct: 0.15
+      peak_stop_loss_pct: 0.15
+      buy_freq: Q
+      sell_freq: W
+  # - name: momentum_yearly_30
+  #   enabled: true
+  #   params:
+  #     lookback: 256
+  #     skip_months: 1
+  #     sell_rank: 20
+  #     max_positions: 10
+  #     initial_stop_loss_pct: 0.30
+  #     peak_stop_loss_pct: 0.30
+  #     buy_freq: Y
+  #     sell_freq: M
+  - name: momentum_roc_inv_vol
+    enabled: true
+    params:
+      lookback: 256
+      skip_months: 1
+      sell_rank: 15
+      max_positions: 10
+      # initial_stop_loss_pct: 0.30
+      # peak_stop_loss_pct: 0.30
+      buy_freq: Q
+      sell_freq: Q
+  - name: momentum_custom
+    enabled: true
+    params:
+      lookback: 256
+      skip_months: 1
+      sell_rank: 15
+      max_positions: 10
+      initial_stop_loss_pct: 0.21
+      peak_stop_loss_pct: 0.31
+      buy_freq: Q
+      sell_freq: D
+  - name: momentum_quaterly
+    enabled: true
+    params:
+      lookback: 256
+      skip_months: 1
+      buy_rank: 10
+      sell_rank: 15
+      buy_freq: Q
+      sell_freq: Q
+  # - name: momentum_score
+  #   enabled: true
+  #   params:
+  #     roc_periods: [60, 120, 250]
+  #     skip_months: 1
+  #     buy_rank: 10
+  #     sell_rank: 20
+  #     buy_freq: M
+  #     sell_freq: M
+
+# Optimization
+optimization:
+  enabled: false
+  method: grid_search            # grid_search | optuna | walk_forward
+  metric: sharpe                 # sharpe | return | calmar | sortino
+  direction: maximize
+  n_trials: 100
+  n_jobs: 4
+  train_years: 3
+  test_months: 6
+  grid:
+    rsi:
+      rsi_window: [100, 200, 300]
+      buy_threshold: [50, 54, 58]
+      sell_threshold: [45, 51, 55]
+
+# Reporting
+reporting:
+  output_dir: results
+  html: false
+  excel: false
+  pdf: false
+  plotly: true
+  include_trade_log: false
+  include_monthly_returns: false
+
+# Database
+database:
+  enabled: false
+  url: sqlite:///results/backtests.db
+
+# Logging
+logging:
+  level: INFO
+  console_level: WARNING
+  file: logs/backtest.log

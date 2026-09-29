@@ -6,19 +6,19 @@ Production-oriented framework for multi-universe, multi-strategy equity backtest
 
 ```bash
 pip install -r requirements.txt
-python main.py --config config.yaml --universe nifty50
+python main.py --config backtest.yaml --universe nifty50
 ```
 
 Run several strategies:
 
 ```bash
-python main.py --config config.yaml --universe nifty50 --strategies RSI RelativeMomentum
+python main.py --config backtest.yaml --universe nifty50 --strategies rsi momentum2
 ```
 
 Optimize a parameter grid:
 
 ```bash
-python main.py --config config.yaml --universe nifty50 --optimize
+python main.py --config backtest.yaml --universe nifty50 --optimize
 ```
 
 ## Expected local data

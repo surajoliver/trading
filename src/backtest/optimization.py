@@ -10,7 +10,7 @@ from tqdm import tqdm
 import warnings
 warnings.filterwarnings('ignore')
 
-from src.core import calculate_metrics, run_backtest
+from src.backtest.core import calculate_metrics, run_backtest
 from src.strategies import StrategyFactory
 
 

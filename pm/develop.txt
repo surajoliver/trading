@@ -2,3 +2,77 @@
     populates as csv and pkl file to /data/raw/Stock Data
 2. 
 
+----------------
+Date 29th Sep
+
+Create a Python paper-trading code to add a **point-in-time ROC ranking report**. 
+
+The existing strategy uses:
+
+```python
+roc = close.shift(skip=21).pct_change(lookback=256)
+vol_90 = close.pct_change().rolling(90).std() * np.sqrt(252)
+inv_vol = 1 / vol_90
+momentum_score = roc * inv_vol
+```
+
+I want an additional **ROC-only ranking** for each portfolio.
+
+### Add this function
+
+```python
+def rank_portfolio_by_roc(
+    portfolio,
+    as_of_date,
+    roc_period=126,
+    top_n=None
+):
+    ...
+```
+
+Example:
+
+```python
+df = rank_portfolio_by_roc(
+    "NIFTY50",
+    "2026-09-29",
+    roc_period=126,
+    top_n=50
+)
+```
+
+Calculate:
+
+```python
+ROC = ((price_today / price_126_days_ago) - 1) * 100
+```
+
+Sort **highest ROC to lowest ROC**.
+
+Output:
+
+```text
+Rank   Stock        Price    ROC %   Volatility  Score   Rank
+1      STOCK_A      1250.50  145.32  99.99       99.99   1
+2      STOCK_B       980.25  132.18  99.99       99.99   2
+3      STOCK_C       750.10  127.44  99.99       99.99   3
+```
+Note: Score = ROC%/ Volatility
+
+
+### Important
+
+* Use the existing portfolio/universe definitions.
+* Use only data available **on or before `as_of_date`** — absolutely no look-ahead bias.
+* If the date is a weekend/holiday, use the latest previous trading day.
+* Display both requested date and actual trading date.
+* Exclude stocks without sufficient historical data; do not assign ROC = 0.
+* Return a pandas DataFrame.
+* Save the result as:
+  `roc_ranking_<portfolio>_<actual_date>.csv`
+* Reuse existing downloaded price data where possible.
+* Keep ROC ranking completely separate from the existing `ROC × inverse volatility` momentum ranking.
+
+### Most important
+
+Return the **complete updated Python code**, not just the changed section. Preserve all existing functionality.

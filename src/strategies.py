@@ -2,13 +2,7 @@
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Set, Optional
-import numpy as np
-import pandas as pd
-from src.utils import get_trading_dates
-
-from abc import ABC, abstractmethod
-from typing import Optional, Set, List, Dict, Any
+from typing import Any, Dict, List, Set
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
@@ -99,6 +93,8 @@ class Strategy(ABC):
         col_map = {sym: i for i, sym in enumerate(close.columns)}
         
         holdings = set()
+        self.entry_prices = {}
+        self.peak_prices = {}
         weight_per_pos = 1.0 / self.max_positions
         
         # Track date categories for debugging
@@ -122,11 +118,17 @@ class Strategy(ABC):
             
             # === SELL LOGIC ===
             if is_sell_date and holdings:
+                for sym in holdings:
+                    price = close.at[dt, sym]
+                    if pd.notna(price):
+                        self.peak_prices[sym] = max(self.peak_prices.get(sym, price), price)
                 sells = set(self.get_sells(close, dt, holdings)) & holdings
                 for sym in sells:
                     #weights.loc[dt, sym] = 0.0
                     weights_array[date_index, col_map[sym]] = 0
                     holdings.remove(sym)
+                    self.entry_prices.pop(sym, None)
+                    self.peak_prices.pop(sym, None)
                     self._orders.append(Order(
                         date=dt, symbol=sym, action='SELL',
                         price=close.loc[dt, sym], weight=0.0,
@@ -143,6 +145,8 @@ class Strategy(ABC):
                         #weights.loc[dt, sym] = weight_per_pos
                         weights_array[date_index, col_map[sym]] = weight_per_pos
                         holdings.add(sym)
+                        self.entry_prices[sym] = close.at[dt, sym]
+                        self.peak_prices[sym] = close.at[dt, sym]
                         self._orders.append(Order(
                             date=dt, symbol=sym, action='BUY',
                             price=close.loc[dt, sym], weight=weight_per_pos,
@@ -236,115 +240,6 @@ class RSIStrategy(Strategy):
         return [s for s in holdings if s in rsi.index and rsi[s] < self.sell_th]
 
 
-class RSINewStrategy(Strategy):
-    """RSI strategy with configurable thresholds."""
-    
-    def __init__(self, rsi_window=200, buy_rank=10, sell_rank=20, sell_threshold=51, **kwargs):
-        # Keep accepting the old constructor name for direct callers.
-        rsi_window = kwargs.pop("window", rsi_window)
-        super().__init__(**kwargs)
-        self.rsi_window = rsi_window
-        self.buy_rank, self.sell_rank = buy_rank, sell_rank
-        self.sell_th = sell_threshold
-
-        self.rsi = None
-    
-    def prepare(self, prices):
-        delta = prices.diff()
-        gain, loss = delta.clip(lower=0), -delta.clip(upper=0)
-        avg_gain = gain.ewm(alpha=1/self.rsi_window, adjust=False, min_periods=self.rsi_window).mean()
-        avg_loss = loss.ewm(alpha=1/self.rsi_window, adjust=False, min_periods=self.rsi_window).mean()
-        rs = avg_gain / avg_loss.replace(0, np.nan)
-        self.rsi = 100 - (100 / (1 + rs))
-        self.ranks = self.rsi.rank(axis=1, ascending=False, method='average')
-    
-    def get_buys(self, prices, dt, holdings, needed):
-        if needed <= 0:
-            return []
-        rsi = self.rsi.loc[dt]
-
-        top_candidates = rsi.nlargest(self.buy_rank)
-        top_candidates = top_candidates[
-            (top_candidates > self.sell_th) &
-            (~top_candidates.index.isin(holdings))
-        ]
-        return top_candidates.head(needed).index.tolist()
-    
-    def get_sells(self, prices, dt, holdings):
-        if not holdings:
-            return []
-        rsi, ranks = self.rsi.loc[dt], self.ranks.loc[dt]
-        sells = []
-        for s in holdings:
-            if s not in rsi.index:
-                continue
-            if pd.notna(rsi[s]) and rsi[s] < self.sell_th:
-                sells.append(s)
-                continue
-            if pd.isna(ranks[s]):
-                sells.append(s)
-                continue
-            if ranks[s] > self.sell_rank:
-                sells.append(s)
-                continue
-        return sells
-
-
-class RSINewAndStrategy(Strategy):
-    """RSI strategy with configurable thresholds."""
-    
-    def __init__(self, rsi_window=200, buy_rank=10, sell_rank=20, sell_threshold=51, **kwargs):
-        # Keep accepting the old constructor name for direct callers.
-        rsi_window = kwargs.pop("window", rsi_window)
-        super().__init__(**kwargs)
-        self.rsi_window = rsi_window
-        self.buy_rank, self.sell_rank = buy_rank, sell_rank
-        self.sell_th = sell_threshold
-
-        self.rsi = None
-    
-    def prepare(self, prices):
-        delta = prices.diff()
-        gain, loss = delta.clip(lower=0), -delta.clip(upper=0)
-        avg_gain = gain.ewm(alpha=1/self.rsi_window, adjust=False, min_periods=self.rsi_window).mean()
-        avg_loss = loss.ewm(alpha=1/self.rsi_window, adjust=False, min_periods=self.rsi_window).mean()
-        rs = avg_gain / avg_loss.replace(0, np.nan)
-        self.rsi = 100 - (100 / (1 + rs))
-        self.ranks = self.rsi.rank(axis=1, ascending=False, method='average')
-    
-    def get_buys(self, prices, dt, holdings, needed):
-        if needed <= 0:
-            return []
-        rsi, ranks = self.rsi.loc[dt], self.ranks.loc[dt]
-        candidates = ranks[
-            rsi.notna() &
-            (ranks <= self.buy_rank) & 
-            (~ranks.index.isin(holdings)) &
-            (rsi > 53)
-        ]
-        candidates = candidates.sort_values().head(needed).index.tolist()
-        return candidates
-    
-    def get_sells(self, prices, dt, holdings):
-        if not holdings:
-            return []
-        rsi, ranks = self.rsi.loc[dt], self.ranks.loc[dt]
-        sells = []
-        for s in holdings:
-            if s not in rsi.index:
-                continue
-            if pd.notna(rsi[s]) and rsi[s] < self.sell_th and ranks[s] > self.sell_rank:
-                sells.append(s)
-                continue
-            # if pd.isna(ranks[s]):
-            #     sells.append(s)
-            #     continue
-            # if ranks[s] > self.sell_rank:
-            #     sells.append(s)
-            #     continue
-        return sells
-
-
 class MomentumStrategy(Strategy):
     """Relative momentum strategy with ranking."""
     
@@ -352,8 +247,11 @@ class MomentumStrategy(Strategy):
         self,
         lookback=256,
         skip_months=1,
-        buy_rank=10,
+        buy_rank=None,
         sell_rank=15,
+        ma_window=None,
+        initial_stop_loss_pct=None,
+        peak_stop_loss_pct=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -361,14 +259,25 @@ class MomentumStrategy(Strategy):
         self.ranks = None
         self.skip_months = skip_months
         self.skip_days = int(skip_months * 21)
+        self.ma_window = ma_window
+        self.ma = None
+        self.initial_stop_loss_pct = initial_stop_loss_pct
+        self.peak_stop_loss_pct = peak_stop_loss_pct
+        print('stop loss: ', self.initial_stop_loss_pct)
     
     def prepare(self, prices):
         ret = prices.shift(self.skip_days).pct_change(self.lookback)
         self.ranks = ret.rank(axis=1, ascending=False)
+        self.ma = prices.rolling(self.ma_window).mean() if self.ma_window else None
     
     def get_buys(self, prices, dt, holdings, needed):
         ranks = self.ranks.loc[dt]
-        candidates = ranks[(ranks <= self.buy_rank) & (~ranks.index.isin(holdings))]
+        candidates = ranks[~ranks.index.isin(holdings)]
+        if self.buy_rank is not None:
+            candidates = candidates[candidates <= self.buy_rank]
+        if self.ma is not None:
+            above_ma = prices.loc[dt].gt(self.ma.loc[dt])
+            candidates = candidates[above_ma.reindex(candidates.index, fill_value=False)]
         return candidates.nsmallest(needed).index.tolist()
 
     
@@ -376,100 +285,133 @@ class MomentumStrategy(Strategy):
         if not holdings:
             return []
         ranks = self.ranks.loc[dt]
-        return [
+        sells = [
             stock for stock in holdings
             if ranks.get(stock, float("inf")) > self.sell_rank
-        ] 
-        #s for s in holdings if s in ranks.index and ranks[s] > self.sell_rank]
+        ]
+
+        current_prices = prices.loc[dt]
+        if self.initial_stop_loss_pct is not None:
+            sells.extend(
+                stock for stock in holdings
+                if stock in self.entry_prices
+                and pd.notna(current_prices.get(stock))
+                and current_prices[stock] <= self.entry_prices[stock] * (1 - self.initial_stop_loss_pct)
+            )
+        if self.peak_stop_loss_pct is not None:
+            sells.extend(
+                stock for stock in holdings
+                if stock in self.peak_prices
+                and pd.notna(current_prices.get(stock))
+                and current_prices[stock] <= self.peak_prices[stock] * (1 - self.peak_stop_loss_pct)
+            )
+        return list(dict.fromkeys(sells))
 
 
-class DualMomentumStrategy(Strategy):
-    """Relative momentum strategy with ranking."""
-    
-    def __init__(self, lookback=256, skip=21, buy_rank=10, sell_rank=15, **kwargs):
-        super().__init__(**kwargs)
-        self.lookback, self.buy_rank, self.sell_rank = lookback, buy_rank, sell_rank
-        self.ranks = None
-        self.roc = None
-        self.skip = skip
-        self.ma200 = None
-    
+class MomentumScoreStrategy(MomentumStrategy):
+    """Momentum ranked by the average percentile of multiple ROC horizons."""
+
+    def __init__(self, roc_periods=(60, 120, 250), skip_months=1, **kwargs):
+        super().__init__(skip_months=skip_months, **kwargs)
+        self.roc_periods = tuple(roc_periods)
+        self.scores = None
+
     def prepare(self, prices):
-        self.roc = prices.shift(self.skip).pct_change(self.lookback)
-        self.ranks = self.roc.rank(axis=1, ascending=False)
-        self.ma200 = prices.rolling(200).mean()
+        skip = int(self.skip_months * 21)
+        percentiles = [
+            prices.shift(skip).pct_change(period).rank(axis=1, pct=True)
+            for period in self.roc_periods
+        ]
+        self.scores = sum(percentiles) / len(percentiles)
+        self.ranks = self.scores.rank(axis=1, ascending=False)
+
+
+class MomentumStopLossStrategy(MomentumStrategy):
+    """Momentum strategy with initial and peak-based stop losses."""
+
+    def __init__(
+        self,
+        initial_stop_loss_pct=0.20,
+        peak_stop_loss_pct=0.20,
+        **kwargs,
+    ):
+        super().__init__(
+            initial_stop_loss_pct=initial_stop_loss_pct,
+            peak_stop_loss_pct=peak_stop_loss_pct,
+            **kwargs,
+        )
+
+class ProportionalROCIvStrategy(MomentumStrategy):
+    """
+    Momentum strategy ranked by Proportional ROC (Rate of Change) and Inverse Volatility.
     
-    def get_buys(self, prices, dt, holdings, needed):
-        if needed <= 0:
-            return []
+    Metric = ROC * Inverse Volatility = ROC / Volatility
+    This acts as a risk-adjusted momentum metric (similar to a Sharpe-like ranking factor).
+    """
 
-        roc_now = self.roc.loc[dt]
-        positive_roc = roc_now[roc_now > 0].dropna()
-        if positive_roc.empty:
-            return []
+    def __init__(
+        self,
+        lookback: int = 252,
+        vol_window: int = 90,
+        skip_months: float = 1.0,
+        **kwargs,
+    ):
+        """
+        Parameters:
+        -----------
+        lookback : int
+            Number of periods/days to calculate the Rate of Change (ROC).
+        vol_window : int
+            Rolling window (in days) to calculate volatility (standard deviation of daily returns).
+        skip_months : float
+            Skip period (in months) to avoid short-term reversal effects.
+        """
+        super().__init__(lookback=lookback, skip_months=skip_months, **kwargs)
+        self.vol_window = vol_window
+        self.scores = None
 
-        ranks = self.ranks.loc[dt].reindex(positive_roc.index)
-        candidates = ranks[
-            (~ranks.index.isin(holdings)) &
-            (ranks <= self.buy_rank)
-        ]
-        if candidates.empty:
-            return []
+    def prepare(self, prices: pd.DataFrame):
+        skip = self.skip_days
 
-        price_now = prices.loc[dt]
-        ma200_now = self.ma200.loc[dt]
-        candidates = candidates[
-            price_now[candidates.index] > (ma200_now[candidates.index] * 1.03)
-        ]
+        # 1. Calculate Rate of Change (ROC)
+        roc = prices.shift(skip).pct_change(self.lookback)
 
-        return candidates.nsmallest(needed).index.tolist()
-   
-    def get_sells(self, prices, dt, holdings):
-        if not holdings:
-            return []
-        ranks = self.ranks.loc[dt]
-        sells = []
-        for s in holdings:
-            if s not in ranks.index:
-                continue
+        # 2. Calculate Volatility (std of daily pct returns) over the specified window
+        daily_returns = prices.pct_change()
+        volatility = daily_returns.rolling(window=self.vol_window).std()
 
-            price_now = prices.loc[dt, s]
-            ma200_now = self.ma200.loc[dt, s]
-            ma200_stop = (
-                pd.notna(price_now) 
-                and pd.notna(ma200_now)
-                and price_now < ma200_now *.98
-            )
+        # Shift volatility to align with the skipped window
+        volatility = volatility.shift(skip)
 
-            rank_sell = ranks[s] > self.sell_rank
-            roc_series = self.roc[s]
-            roc_now = roc_series.loc[dt]
-            roc_20 = roc_series.shift(30).loc[dt]
-            roc_40 = roc_series.shift(60).loc[dt]
-            trend_sell = (
-                pd.notna(roc_now)
-                and pd.notna(roc_20)
-                and pd.notna(roc_40)
-                and (roc_now < roc_20)
-                and (roc_20 < roc_40)
-            )
+        # 3. Calculate Inverse Volatility (1 / Volatility)
+        # Avoid division by zero by replacing zero/extremely tiny values with NaN
+        inverse_volatility = 1.0 / volatility.replace(0, np.nan)
 
-            if ma200_stop or rank_sell :
-                sells.append(s)
+        # 4. Proportional ROC * Inverse Volatility Factor (Risk-Adjusted Momentum)
+        self.scores = roc * inverse_volatility
 
-        return sells
+        # 5. Rank stocks across the universe for each date (Descending: rank 1 = best stock)
+        self.ranks = self.scores.rank(axis=1, ascending=False)
 
+        # Optional MA Filter initialization from base class
+        if self.ma_window:
+            self.ma = prices.rolling(self.ma_window).mean()
 
 class StrategyFactory:
     """Strategy factory."""
     _registry = {
-        'rsi': RSIStrategy,
-        'momentum': MomentumStrategy,
-        'momentum2': MomentumStrategy,
-        'dualmomentum': DualMomentumStrategy,
-        'dual_momentum': DualMomentumStrategy,
-        'rsi_new': RSINewStrategy,
-        'rsi_new_and': RSINewAndStrategy,
+        # 'rsi': RSIStrategy,
+        # 'momentum_monthly': MomentumStrategy,
+        'momentum_quaterly': MomentumStrategy,
+        # 'momentum_yearly': MomentumStrategy,
+        # 'momentum_yearly_30': MomentumStrategy,        
+        # # 'momentum_score': MomentumScoreStrategy,
+        # 'momentum_stop_loss': MomentumStopLossStrategy,
+        # 'momentum_stop_loss_05': MomentumStopLossStrategy,
+        # 'momentum_stop_loss_10': MomentumStopLossStrategy,
+        'momentum_stop_loss_15': MomentumStopLossStrategy,
+        'momentum_roc_inv_vol': ProportionalROCIvStrategy,
+        'momentum_custom': ProportionalROCIvStrategy,
     }
     
     @classmethod

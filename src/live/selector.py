@@ -16,6 +16,8 @@ class StockDecision:
     ma50: pd.Series | None = field(default=None, repr=False)
     roc: pd.Series | None = field(default=None, repr=False)
     roc_current: pd.Series | None = field(default=None, repr=False)
+    momentum_score: pd.Series | None = field(default=None, repr=False)
+    vol_90: pd.Series | None = field(default=None, repr=False)
     ranks_current: pd.Series | None = field(default=None, repr=False)
     roc_history: dict | None = field(default=None, repr=False)
     rank_history: dict | None = field(default=None, repr=False)
@@ -100,6 +102,18 @@ class StockDecision:
             else:
                 extension_over_ma50 = None
 
+            momentum_score_value = (
+                self.momentum_score.get(symbol)
+                if self.momentum_score is not None and symbol in self.momentum_score.index
+                else None
+            )
+
+            vol_90_value = (
+                self.vol_90.get(symbol)
+                if self.vol_90 is not None and symbol in self.vol_90.index
+                else None
+            )
+
             if status == "Buy":
                 qty_to_buy = round(70000 / close_price) if close_price not in (None, 0) else 0
                 if rank is not None and ma200 is not None:
@@ -148,6 +162,8 @@ class StockDecision:
                 "macd": macd_value,
                 "macd_histogram": macd_hist_value,
                 "accel_6m_4w": accel_value,
+                "momentum_score": momentum_score_value,
+                "vol_90": vol_90_value,
                 "remarks": remarks,
             })
 
@@ -156,7 +172,7 @@ class StockDecision:
     def to_dataframe(self):
         rows = self._build_rows()
         if not rows:
-            return pd.DataFrame(columns=["stock", "status", "last_price", "entry_price", "entry_date", "stop_loss_price", "mae", "mfe", "highest_price", "trailing_stop_price", "qty_to_buy", "rank", "roc", "rank_current_month", "roc_current_month", "roc_history", "rank_history", "ma200", "extension", "ma50", "extension2", "macd", "macd_histogram", "accel_6m_4w", "remarks"])
+            return pd.DataFrame(columns=["stock", "status", "last_price", "entry_price", "entry_date", "stop_loss_price", "mae", "mfe", "highest_price", "trailing_stop_price", "qty_to_buy", "rank", "roc", "rank_current_month", "roc_current_month", "roc_history", "vol_90", "momentum_score", "rank_history", "ma200", "extension", "ma50", "extension2", "macd", "macd_histogram", "accel_6m_4w", "remarks"])
 
         df = pd.DataFrame(rows)
         status_order = {"Buy": 0, "Hold": 1, "Sell": 2}
@@ -193,9 +209,14 @@ class MomentumLiveSelector:
 
     def prepare(self, close):
         self.roc = close.shift(self.skip).pct_change(self.lookback)
-        self.ranks = self.roc.rank(axis=1, ascending=False)
+        returns = close.pct_change()
+        self.vol_90 = returns.rolling(90).std() * np.sqrt(252)
+        self.inv_vol_90 = 1 / self.vol_90.replace(0, np.nan)
+        self.momentum_score = self.roc * self.inv_vol_90
+        self.ranks = self.momentum_score.rank(axis=1, ascending=False)
+        # self.ranks = self.roc.rank(axis=1, ascending=False)
         self.roc_current = close.pct_change(self.lookback)
-        self.ranks_current = self.roc_current.rank(axis=1, ascending=False)
+        self.ranks_current = self.momentum_score.rank(axis=1, ascending=False)
         self.ma = close.rolling(self.ma_window).mean()
         self.ma50 = close.rolling(50).mean()
 
@@ -228,6 +249,9 @@ class MomentumLiveSelector:
         macd = self.macd_norm.loc[dt]
         macd_histogram = self.macd_histogram_norm.loc[dt]
         accel_6m_4w = self.accel_6m_4w.loc[dt]
+
+        momentum_score = self.momentum_score.loc[dt]
+        vol_90 = self.vol_90.loc[dt]
 
         def _format_history(current, prev_1m, prev_2m, decimals=2, as_int=False):
             def fmt(value):
@@ -335,7 +359,7 @@ class MomentumLiveSelector:
         slots = self.max_positions - len(hold)
 
         if slots <= 0:
-            return StockDecision(sell, [], hold, 0, ranks=ranks, prices=price, ma=ma, ma50=ma50, roc=roc, roc_current=roc_current_series, ranks_current=ranks_current, roc_history=roc_history, rank_history=rank_history, macd=macd, macd_histogram=macd_histogram, accel_6m_4w=accel_6m_4w, sell_rank=self.sell_rank, entry_prices=entry_prices, entry_dates=entry_dates, stop_loss_prices=stop_loss_prices, mae=mae, mfe=mfe, highest_prices=highest_prices, trailing_stop_prices=trailing_stop_prices, sell_reasons=sell_reasons)
+            return StockDecision(sell, [], hold, 0, ranks=ranks, prices=price, ma=ma, ma50=ma50, roc=roc, roc_current=roc_current_series, ranks_current=ranks_current, roc_history=roc_history, rank_history=rank_history, macd=macd, macd_histogram=macd_histogram, accel_6m_4w=accel_6m_4w, sell_rank=self.sell_rank, entry_prices=entry_prices, entry_dates=entry_dates, stop_loss_prices=stop_loss_prices, mae=mae, mfe=mfe, highest_prices=highest_prices, trailing_stop_prices=trailing_stop_prices, sell_reasons=sell_reasons, momentum_score=momentum_score, vol_90=vol_90,)
 
         # New entries
         candidates = ranks[
@@ -343,15 +367,7 @@ class MomentumLiveSelector:
             & ~ranks.index.isin(sell)
         ]
 
-        eligible = candidates[
-            price.reindex(candidates.index)
-            .gt(
-                ma.reindex(candidates.index) *
-                (1 + self.ma_buffer)
-            )
-        ]
-
-        buy = eligible.nsmallest(slots).index.tolist()
+        buy = candidates.nsmallest(slots).index.tolist()
 
         return StockDecision(
             sell=sell,
@@ -379,4 +395,7 @@ class MomentumLiveSelector:
             highest_prices=highest_prices,
             trailing_stop_prices=trailing_stop_prices,
             sell_reasons=sell_reasons,
+            momentum_score=momentum_score,
+            vol_90=vol_90,
+
         )

@@ -1,7 +1,29 @@
 import yaml
 import pandas as pd
-from src.core import DataLoader
+from pathlib import Path
+from src.data_loader import DataLoader
 from src.live.selector import StockDecision, MomentumLiveSelector
+
+
+COLUMN_GROUPS = [
+    ["universe", "run_timestamp", "stock", "status", "rank"],
+    ["entry_date", "entry_price", "qty_to_buy", "last_price"],
+    ["stop_loss_price", "trailing_stop_price"],
+    ["mae", "mfe", "highest_price"],
+    ["rank_current_month", "roc", "roc_current_month", "roc_history", "vol_90", "momentum_score", "rank_history"],
+    ["ma50", "ma200", "extension", "extension2", "macd", "macd_histogram", "accel_6m_4w"],
+    ["remarks"],
+]
+
+
+def arrange_live_output(dataframe):
+    """Arrange live output fields with blank columns between sections."""
+    sections = []
+    for index, columns in enumerate(COLUMN_GROUPS):
+        sections.append(dataframe[columns])
+        if index < len(COLUMN_GROUPS) - 1:
+            sections.append(pd.DataFrame({"": pd.NA}, index=dataframe.index))
+    return pd.concat(sections, axis=1)
 
 with open("live.yaml", "r") as f:
     cfg = yaml.safe_load(f)
@@ -47,9 +69,15 @@ for universe, portfolio in cfg["portfolios"].items():
         decision_df.insert(1, "run_timestamp", run_timestamp)
         live_results.append(decision_df)
 
-if live_results:
-    pd.concat(live_results, ignore_index=True).to_csv("live_output.csv", index=False)
-else:
-    pd.DataFrame().to_csv("live_output.csv", index=False)
+output_dir = Path("results")
+output_dir.mkdir(parents=True, exist_ok=True)
+output_timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+output_path = output_dir / f"live_output_{output_timestamp}.csv"
 
-print("Live output saved to live_output.csv")
+if live_results:
+    live_output = pd.concat(live_results, ignore_index=True)
+    arrange_live_output(live_output).to_csv(output_path, index=False)
+else:
+    arrange_live_output(pd.DataFrame(columns=sum(COLUMN_GROUPS, []))).to_csv(output_path, index=False)
+
+print(f"Live output saved to {output_path}")

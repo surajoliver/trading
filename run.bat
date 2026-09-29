@@ -1,3 +1,3 @@
 @echo off
-python main.py --config config.yaml --universe nifty50
+python main.py --config backtest.yaml --universe nifty50
 

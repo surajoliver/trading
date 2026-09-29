@@ -3,10 +3,7 @@
 __pycache__/
 logs/
 research/
-summary.csv
-trade_log.csv
-trade_report.csv
+results/
 tests/
 .venv/
 data/raw/Stock Data/
-live_output.csv
